@@ -3,6 +3,8 @@ import elizabeth
 import random
 import sys
 
+sys_random = random.SystemRandom()
+
 
 class Charade:
 
@@ -15,9 +17,11 @@ class Charade:
 
         self.language = 'en'
 
-        self.people = [Person(self) for x in range(0, int(self.size/50) or 2)]
+        self.people = [Person(self) for x in range(0, int(self.size/50))]
+        while len(self.people) < 10:
+            self.people.append(Person(self))
 
-        print(self.people)
+        self.custodian = random.choice(self.people)
 
     def __iter__(self):
         return self
@@ -25,6 +29,8 @@ class Charade:
     def __next__(self):
         if self.index < self.size:
             random.seed()
+            if self.index % 1000 == 0:
+                self.custodian = random.choice(self.people)
             d = random.choice([Email(self), Email(self), Email(self), Email(self), File(self)])
             self.index += len(d) + 1
             return d
@@ -48,13 +54,13 @@ class GenericCollection:
                                          str(self.index+self.start).zfill(self.instance.fill))
 
         if sys.version_info >= (3, 6):
-            self.child_count = random.choices(range(0, 20),
-                                              weights=[100, 50, 20, 10, 5,
-                                                       5, 3, 3, 2, 1,
-                                                       1, 1, 1, 1, 1,
-                                                       1, 1, 1, 1, 1])
+            self.child_count = sys_random.choices(range(0, 20),
+                                                  weights=[100, 50, 20, 10, 5,
+                                                           5, 3, 3, 2, 1,
+                                                           1, 1, 1, 1, 1,
+                                                           1, 1, 1, 1, 1])[0]
         else:
-            self.child_count = random.randint(0, 20)
+            self.child_count = sys_random.randint(0, 20)
 
     def __iter__(self):
         return self
@@ -68,8 +74,32 @@ class Email(GenericCollection):
     def __init__(self, instance, parent=None):
         super().__init__(instance, parent)
 
+        self.authors = set()
+        self.recipients = set()
+        self.copyees = set()
+        self.blind_copyees = set()
+
+        available = set(self.instance.people)
+
+        for attrib, mn, mx in [("authors", 1, 1),
+                               ("recipients", 1, 5),
+                               ("copyees", 0, 5),
+                               ("blind_copyees", 0, 2)]:
+            setattr(self, attrib, set(sys_random.choices(list(available), k=sys_random.randint(mn, mx))))
+            available = available.difference(getattr(self, attrib))
+
+        self.sent = elizabeth.Datetime().date(with_time=True)
+        self.subject = elizabeth.Text().title()
+
     def __repr__(self):
         return "Email({})".format(self.instance)
+
+    def __str__(self):
+        return "From:\t{}\nTo:\t{}\nCC:\t{}\nBCC:\t{}\n\n{}".format("; ".join([str(x) for x in self.authors]),
+                                                                    "; ".join([str(x) for x in self.recipients]),
+                                                                    "; ".join([str(x) for x in self.copyees]),
+                                                                    "; ".join([str(x) for x in self.blind_copyees]),
+                                                                    list(self.authors)[0].email_signature)
 
     def __next__(self):
         if self.child_count > 0 and self.index < self.child_count:
@@ -100,6 +130,8 @@ class File(GenericCollection):
     def __init__(self, instance, parent=None):
         super().__init__(instance, parent)
 
+        self.author = random.choice(self.instance.people)
+
     def __next__(self):
         if self.child_count > 0 and self.index < self.child_count:
             self.index += 1
@@ -123,13 +155,22 @@ class Person:
         self.instance = instance
         p = elizabeth.Personal(self.instance.language)
 
+        self.company = elizabeth.Business(self.instance.language).company()
+        self.phone = p.telephone()
         self.email = p.email()
         self.name_first = p.name()
         self.name_last = p.surname()
-        self.title = p.title()
+        self.title = p.occupation()
         self.username = p.username()
 
         self.email_formatted = "{}, {} <{}>".format(self.name_last, self.name_first, self.email)
+        self.email_signature = "{} {}\n{}\n{}\n\n{}\n{}".format(self.name_first,
+                                                                self.name_last,
+                                                                self.title,
+                                                                self.company,
+                                                                self.email,
+                                                                self.phone)
 
-
+    def __str__(self):
+        return self.email_formatted
 
