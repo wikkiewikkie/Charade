@@ -18,7 +18,7 @@ class Charade:
         self.language = 'en'
 
         self.people = [Person(self) for x in range(0, int(self.size/50))]
-        while len(self.people) < 10:
+        while len(self.people) < 15:
             self.people.append(Person(self))
 
         self.custodian = random.choice(self.people)
@@ -27,9 +27,9 @@ class Charade:
         return self
 
     def __next__(self):
-        if self.index < self.size:
+        if self.index <= self.size:
             random.seed()
-            if self.index % 1000 == 0:
+            if self.index % 250 == 0:
                 self.custodian = random.choice(self.people)
             d = random.choice([Email(self), Email(self), Email(self), Email(self), File(self)])
             self.index += len(d) + 1
@@ -85,7 +85,7 @@ class Email(GenericCollection):
                                ("recipients", 1, 5),
                                ("copyees", 0, 5),
                                ("blind_copyees", 0, 2)]:
-            setattr(self, attrib, set(sys_random.choices(list(available), k=sys_random.randint(mn, mx))))
+            setattr(self, attrib, set(sys_random.sample(list(available), k=sys_random.randint(mn, mx))))
             available = available.difference(getattr(self, attrib))
 
         self.sent = elizabeth.Datetime().date(with_time=True)
