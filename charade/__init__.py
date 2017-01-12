@@ -1,5 +1,7 @@
 import copy
+import csv
 import elizabeth
+import io
 import random
 import sys
 
@@ -8,10 +10,9 @@ sys_random = random.SystemRandom()
 
 class Charade:
 
-    def __init__(self, prefix="CHARADE", fill=6, start=1, size=500):
+    def __init__(self, prefix="CHARADE", fill=6, size=500):
         self.prefix = prefix
         self.fill = fill
-        self.start = start
         self.index = 1
         self.size = size
 
@@ -38,21 +39,35 @@ class Charade:
             raise StopIteration
 
     def __repr__(self):
-        return "Charade({}, {}, {})".format(self.prefix, self.fill, self.start)
+        return "Charade(prefix='{}', fill={}, size={})".format(self.prefix, self.fill, self.size)
+
+    def delimited(self, delimiter="\x14", quote="\xfe"):
+        file = io.StringIO()
+        writer = csv.writer(file, delimiter=delimiter, quotechar=quote)
+        for doc in self:
+            writer.writerow([doc.document_id, doc.parent_id])
+            for att in doc:
+                writer.writerow([att.document_id, att.parent_id])
+        file.seek(0)
+        return file
 
 
-class GenericCollection:
+class GenericDocument:
 
     def __init__(self, instance, parent=None):
         self.instance = instance
         self.parent = parent
 
-        self.index = 0
-        self.start = copy.copy(self.instance.index)
+        self.index = copy.copy(self.instance.index)
 
-        self.document_id = "{}{}".format(self.instance.prefix,
-                                         str(self.index+self.start).zfill(self.instance.fill))
+        self.document_id = "{}{}".format(self.instance.prefix, str(self.index).zfill(self.instance.fill))
 
+        if parent:
+            self.parent_id = self.parent.document_id
+        else:
+            self.parent_id = self.document_id
+
+        self.delimited_fields = ['document_id', "parent_id"]
         if sys.version_info >= (3, 6):
             self.child_count = sys_random.choices(range(0, 20),
                                                   weights=[100, 50, 20, 10, 5,
@@ -69,7 +84,7 @@ class GenericCollection:
         return self.child_count
 
 
-class Email(GenericCollection):
+class Email(GenericDocument):
 
     def __init__(self, instance, parent=None):
         super().__init__(instance, parent)
@@ -104,7 +119,7 @@ class Email(GenericCollection):
     def __next__(self):
         if self.child_count > 0 and self.index < self.child_count:
             self.index += 1
-            return EmailAttachment(self, self.index+self.start)
+            return EmailAttachment(self, self.index)
         else:
             raise StopIteration
 
@@ -125,7 +140,7 @@ class EmailAttachment:
         return 1
 
 
-class File(GenericCollection):
+class File(GenericDocument):
 
     def __init__(self, instance, parent=None):
         super().__init__(instance, parent)
