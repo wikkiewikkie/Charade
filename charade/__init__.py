@@ -88,7 +88,7 @@ class Email(GenericCollection):
             setattr(self, attrib, set(sys_random.sample(list(available), k=sys_random.randint(mn, mx))))
             available = available.difference(getattr(self, attrib))
 
-        self.sent = elizabeth.Datetime().date(with_time=True)
+        self.sent = elizabeth.Datetime().date()
         self.subject = elizabeth.Text().title()
 
     def __repr__(self):
